@@ -35,9 +35,8 @@ public:
 
     int connect(String server_uri, String client_id, int keepalive, int protocol, bool cleansession);
     int disconnect();
-    // What type should payload be?
     int publish(String topic, String payload, int qos, bool retain);
-    void subscribe(String topic, int qos);
+    int subscribe(String topic, int qos);
     int unsubscribe(String topic);
 
     MQTT();

@@ -9,6 +9,9 @@
 // use MQTTAsync.h
 // use transport (websocket/wss/tcp) - hostname - port instead of uri
 // TLS
+// unsubscribe
+// better error handling
+// protocol, transport, error enums
 
 void MQTT::deliveryComplete(MQTTClient_deliveryToken dt) {
     emit_signal("message_delivered", dt);
@@ -132,8 +135,12 @@ int MQTT::publish(String topic, String payload, int qos, bool retain) {
 }
 
 
-void MQTT::subscribe(String topic, int qos) {
-    MQTTClient_subscribe(client, topic.utf8().get_data(), qos);
+int MQTT::subscribe(String topic, int qos) {
+    return MQTTClient_subscribe(client, topic.utf8().get_data(), qos);
+}
+
+int MQTT::unsubscribe(String topic) {
+    return MQTTClient_unsubscribe(client, topic.utf8().get_data());
 }
 
 void MQTT::_bind_methods() {
@@ -147,6 +154,7 @@ void MQTT::_bind_methods() {
     ClassDB::bind_method(D_METHOD("connect_to_server", "server_uri", "client_id", "keepalive", "protocol", "cleansession"), &MQTT::connect, DEFVAL(20), DEFVAL(MQTTv311), DEFVAL(true));
     ClassDB::bind_method(D_METHOD("publish", "topic", "payload", "qos", "retain"), &MQTT::publish, DEFVAL(0), DEFVAL(false));
     ClassDB::bind_method(D_METHOD("subscribe", "topic", "qos"), &MQTT::subscribe, DEFVAL(0));
+    ClassDB::bind_method(D_METHOD("unsubscribe", "topic"), &MQTT::unsubscribe);
 
     // Signals
     ADD_SIGNAL(MethodInfo("message_recieved", PropertyInfo(Variant::STRING, "topic"),  PropertyInfo(Variant::STRING, "payload")));

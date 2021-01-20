@@ -1,13 +1,6 @@
 #include "mqtt.h"
 
 
-#define ADDRESS     "tcp://broker.emqx.io:1883"
-#define CLIENTID    "ExampleClientPub"
-#define TOPIC       "MQTT Examples"
-#define PAYLOAD     "Hello World!"
-#define QOS         0
-#define TIMEOUT     10000L
-
 // BUGS:
 // Low message limit - prob due to broker.emqx.io
 // Freezes at MQTTClient_connect when bad address is used
@@ -16,11 +9,11 @@
 // use MQTTAsync.h
 // use transport (websocket/wss/tcp) - hostname - port instead of uri
 // TLS
-// Signals
-
 
 void MQTT::deliveryComplete(MQTTClient_deliveryToken dt) {
-    print_line(vformat("Message with token value %d delivery confirmed", dt));
+    emit_signal("message_delivered", dt);
+
+    print_verbose(vformat("MQTT: Message with token value %d delivery confirmed", dt));
     deliveredtoken = dt;
 }
 
@@ -33,9 +26,11 @@ int MQTT::messageArrived(char *topicName, int topicLen, MQTTClient_message *mess
     String topic(topicName);
     String payload(reinterpret_cast<char *>(message->payload));
 
-    print_line("Message arrived");
-    print_line(vformat("    topic: %s", topic));
-    print_line(vformat("  message: %s", payload));
+    emit_signal("message_recieved", topic, payload);
+
+    print_verbose("MQTT: Message arrived");
+    print_verbose(vformat("  topic  : %s", topic));
+    print_verbose(vformat("  message: %s", payload));
 
     MQTTClient_freeMessage(&message);
     MQTTClient_free(topicName);
@@ -49,8 +44,10 @@ int messageArrivedShim(void *context, char *topicName, int topicLen, MQTTClient_
 
 void MQTT::connectionLost(char *cause) {
     String causestr(cause);
-    print_line("Connection lost!");
-    print_line(vformat("    cause:%s", causestr));
+    emit_signal("connection_lost", causestr);
+
+    print_verbose("MQTT: Connection lost!");
+    print_verbose(vformat("    cause:%s", causestr));
 }
 
 void connectionLostShim(void *context, char *cause) {
@@ -62,7 +59,7 @@ int MQTT::connect(String server_uri, String client_id, int keepalive, int protoc
     int rc;
     
     // Create client
-    print_line("Creating client...");
+    print_verbose("MQTT: Creating client...");
     const char* addr = server_uri.utf8().get_data();
     const char* c_id = client_id.utf8().get_data();
 
@@ -79,7 +76,6 @@ int MQTT::connect(String server_uri, String client_id, int keepalive, int protoc
     }
     
     // Configure options
-    print_line("Configuring options...");
     MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
 
     conn_opts.keepAliveInterval = keepalive;
@@ -104,7 +100,7 @@ int MQTT::connect(String server_uri, String client_id, int keepalive, int protoc
         break;
     }
 
-    print_line("Connecting...");
+    print_verbose("MQTT: Connecting...");
 
     rc = MQTTClient_connect(client, &conn_opts);
     if (rc != MQTTCLIENT_SUCCESS) {
@@ -132,9 +128,7 @@ int MQTT::publish(String topic, String payload, int qos, bool retain) {
 
     MQTTClient_publishMessage(client, topic_string, &pubmsg, &token);
 
-
-    //remvoe wait?
-    return MQTTClient_waitForCompletion(client, token, TIMEOUT);
+    return token;
 }
 
 
@@ -148,9 +142,16 @@ void MQTT::_bind_methods() {
     VARIANT_ENUM_CAST(MQTT::Transport);
     VARIANT_ENUM_CAST(MQTT::Error);
     */
+
+    // Methods
     ClassDB::bind_method(D_METHOD("connect_to_server", "server_uri", "client_id", "keepalive", "protocol", "cleansession"), &MQTT::connect, DEFVAL(20), DEFVAL(MQTTv311), DEFVAL(true));
     ClassDB::bind_method(D_METHOD("publish", "topic", "payload", "qos", "retain"), &MQTT::publish, DEFVAL(0), DEFVAL(false));
     ClassDB::bind_method(D_METHOD("subscribe", "topic", "qos"), &MQTT::subscribe, DEFVAL(0));
+
+    // Signals
+    ADD_SIGNAL(MethodInfo("message_recieved", PropertyInfo(Variant::STRING, "topic"),  PropertyInfo(Variant::STRING, "payload")));
+    ADD_SIGNAL(MethodInfo("message_delivered", PropertyInfo(Variant::INT, "delivery_token")));
+    ADD_SIGNAL(MethodInfo("connection_lost", PropertyInfo(Variant::STRING, "cause")));
 }
 
 MQTT::MQTT() {

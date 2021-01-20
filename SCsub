@@ -1,0 +1,9 @@
+Import('env')
+
+env_mqtt = env.Clone()
+env_mqtt.add_source_files(env.modules_sources, "*.cpp") # Add all c files to the build
+
+env_mqtt.Append(CPPPATH=["pahomqtt/include"])
+
+env.Append(LIBPATH=["pahomqtt/lib"])
+env.Append(LIBS=["modules/mqtt/pahomqtt/lib/paho-mqtt3c"])
